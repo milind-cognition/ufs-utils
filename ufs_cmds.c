@@ -2004,6 +2004,49 @@ static int read_single_attr(int fd, struct tool_options *opt, __u8 idn,
 	return rc;
 }
 
+/*
+ * Read the UFS spec version from the device descriptor.
+ * Returns the spec version (e.g. 0x0300 for UFS 3.0) or 0 on failure.
+ */
+static __u16 get_ufs_spec_version(int fd)
+{
+	__u8 dev_desc[QUERY_DESC_DEVICE_MAX_SIZE] = {0};
+	__u16 spec_value;
+	int rc;
+
+	rc = do_device_desc(fd, dev_desc, 0);
+	if (rc)
+		return 0;
+
+	spec_value = be16toh(*(__u16 *)&dev_desc[DEVICE_DESC_SPEC_VER_OFFSET]);
+	return spec_value;
+}
+
+/*
+ * Check if an attribute IDN is supported by the given UFS spec version.
+ * Attributes introduced in UFS 4.0 and 4.1 should not be queried on
+ * older devices as they may crash the device (see GitHub issue #73).
+ */
+static bool is_attr_supported(__u8 att_idn, __u16 spec_version)
+{
+	/* UFS 4.1 attributes */
+	if (att_idn == QUERY_ATTR_IDN_DEVICE_LEVEL_EXT_ID ||
+	    (att_idn >= QUERY_ATTR_IDN_WB_RESIZE_HINT &&
+	     att_idn <= QUERY_ATTR_IDN_PINNED_WB_MIN_NUM_ALLOC_UNITS))
+		return spec_version >= UFS_SPEC_VER_4_1;
+
+	/* UFS 4.0 attributes: Refresh, FBO, HID */
+	if ((att_idn >= QUERY_ATTR_IDN_REFRESH_STATUS &&
+	     att_idn <= QUERY_ATTR_IDN_REFRESH_METHOD) ||
+	    (att_idn >= QUERY_ATTR_IDN_FBO_CONTROL &&
+	     att_idn <= QUERY_ATTR_IDN_FBO_PROGRESS_STATE) ||
+	    (att_idn >= QUERY_ATTR_IDN_DEFRAG_OPERATION &&
+	     att_idn <= QUERY_ATTR_IDN_HID_STATE))
+		return spec_version >= UFS_SPEC_VER_4_0;
+
+	return true;
+}
+
 int do_attributes(struct tool_options *opt)
 {
 	int fd;
@@ -2014,6 +2057,7 @@ int do_attributes(struct tool_options *opt)
 	__u32 attr_value;
 	struct ufs_bsg_request bsg_req = {0};
 	struct ufs_bsg_reply bsg_rsp = {0};
+	__u16 spec_version = 0;
 
 	if (opt->opr == READ_ALL || opt->opr == READ)
 		oflag = O_RDONLY;
@@ -2026,6 +2070,11 @@ int do_attributes(struct tool_options *opt)
 	tmp = &ufs_attrs[opt->idn];
 
 	if (opt->opr == READ_ALL) {
+		spec_version = get_ufs_spec_version(fd);
+		if (!spec_version)
+			print_warn("Could not determine UFS spec version, "
+				   "querying all attributes");
+
 		att_idn = QUERY_ATTR_IDN_BOOT_LU_EN;
 
 		while (att_idn < QUERY_ATTR_IDN_MAX) {
@@ -2036,6 +2085,13 @@ int do_attributes(struct tool_options *opt)
 				att_idn++;
 				continue;
 			}
+
+			if (spec_version &&
+			    !is_attr_supported(att_idn, spec_version)) {
+				att_idn++;
+				continue;
+			}
+
 			rc = read_single_attr(fd, opt, att_idn, &bsg_req,
 					      &bsg_rsp);
 
