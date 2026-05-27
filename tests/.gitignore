@@ -1,0 +1,7 @@
+# Compiled test binaries
+test_ufs_utils
+test_options
+test_scsi_bsg
+test_ufs_cmds
+ufs_no_main.o
+*.o
