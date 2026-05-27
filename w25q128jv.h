@@ -35,7 +35,7 @@ extern "C" {
 #define W25Q128JV_MANUFACTURER_ID    0xEFU
 #define W25Q128JV_DEVICE_ID          0x17U
 #define W25Q128JV_JEDEC_MEM_TYPE_IQ  0x40U  /* IQ/JQ variant */
-#define W25Q128JV_JEDEC_MEM_TYPE_IM  0x70U  /* IM*/JM* variant */
+#define W25Q128JV_JEDEC_MEM_TYPE_IM  0x70U  /* IM/JM variant */
 #define W25Q128JV_JEDEC_CAPACITY     0x18U
 
 /* ------------------------------------------------------------------ */

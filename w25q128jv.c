@@ -186,7 +186,8 @@ w25q_err_t w25q_write_sr3(w25q_dev_t *dev, uint8_t val)
 w25q_err_t w25q_read(w25q_dev_t *dev, uint32_t addr,
 		     uint8_t *buf, size_t len)
 {
-	if (!buf || (addr + len) > W25Q128JV_CHIP_SIZE)
+	if (!buf || len > W25Q128JV_CHIP_SIZE ||
+	    addr > (W25Q128JV_CHIP_SIZE - len))
 		return W25Q_ERR_PARAM;
 
 	uint8_t hdr[4] = {
@@ -209,7 +210,8 @@ w25q_err_t w25q_read(w25q_dev_t *dev, uint32_t addr,
 w25q_err_t w25q_fast_read(w25q_dev_t *dev, uint32_t addr,
 			  uint8_t *buf, size_t len)
 {
-	if (!buf || (addr + len) > W25Q128JV_CHIP_SIZE)
+	if (!buf || len > W25Q128JV_CHIP_SIZE ||
+	    addr > (W25Q128JV_CHIP_SIZE - len))
 		return W25Q_ERR_PARAM;
 
 	uint8_t hdr[5] = {
@@ -272,7 +274,8 @@ w25q_err_t w25q_page_program(w25q_dev_t *dev, uint32_t addr,
 w25q_err_t w25q_write(w25q_dev_t *dev, uint32_t addr,
 		      const uint8_t *data, size_t len)
 {
-	if (!data || (addr + len) > W25Q128JV_CHIP_SIZE)
+	if (!data || len > W25Q128JV_CHIP_SIZE ||
+	    addr > (W25Q128JV_CHIP_SIZE - len))
 		return W25Q_ERR_PARAM;
 
 	while (len) {
