@@ -2004,6 +2004,84 @@ static int read_single_attr(int fd, struct tool_options *opt, __u8 idn,
 	return rc;
 }
 
+/**
+ * read_device_spec_version - Read wSpecVersion from the device descriptor
+ * @fd: file descriptor for the UFS BSG device
+ *
+ * Returns the wSpecVersion value on success, 0 on failure.
+ */
+static __u16 read_device_spec_version(int fd)
+{
+	__u8 dev_desc[QUERY_DESC_DEVICE_MAX_SIZE] = {0};
+	struct desc_field_offset *tmp = &device_desc_field_name[0x10];
+	__u16 *ufs_spec;
+	int rc;
+
+	rc = do_device_desc(fd, dev_desc, 0);
+	if (rc != OK)
+		return 0;
+
+	ufs_spec = (__u16 *)&dev_desc[tmp->offset];
+	return be16toh(*ufs_spec);
+}
+
+/**
+ * get_attr_min_spec_version - Get minimum UFS spec version for an attribute
+ * @attr_idn: attribute IDN
+ *
+ * Returns the minimum wSpecVersion required to query the given attribute.
+ */
+static __u16 get_attr_min_spec_version(__u8 attr_idn)
+{
+	/* 0x00-0x16: UFS 2.0 base attributes */
+	if (attr_idn <= QUERY_ATTR_IDN_DEVICE_PSA_DATA_SIZE)
+		return UFS_SPEC_VER_2_0;
+	/* 0x17-0x1A: UFS 2.1 (temperature, ref clk gating) */
+	if (attr_idn <= QUERY_ATTR_IDN_TOO_LOW_TEMP_BOUNDARY)
+		return UFS_SPEC_VER_2_1;
+	/* 0x1B: UFS 3.0 (throttling status) */
+	if (attr_idn <= QUERY_ATTR_IDN_THROTTLING_STAT)
+		return UFS_SPEC_VER_3_0;
+	/* 0x1C-0x1F: UFS 3.1 (WriteBooster) */
+	if (attr_idn <= QUERY_ATTR_IDN_WB_CUR_BUF_SIZE)
+		return UFS_SPEC_VER_3_1;
+	/* 0x2A-0x33, 0x35-0x39: UFS 4.0 (Refresh, FBO, HID) */
+	if (attr_idn <= QUERY_ATTR_IDN_FBO_PROGRESS_STATE)
+		return UFS_SPEC_VER_4_0;
+	/* 0x34: UFS 4.1 (qDeviceLevelExceptionID) */
+	if (attr_idn == QUERY_ATTR_IDN_DEVICE_LEVEL_EXT_ID)
+		return UFS_SPEC_VER_4_1;
+	/* 0x35-0x39: UFS 4.0 (HID, Defrag) */
+	if (attr_idn <= QUERY_ATTR_IDN_HID_STATE)
+		return UFS_SPEC_VER_4_0;
+	/* 0x3C-0x46: UFS 4.1 (WB resize, pinned WB) */
+	if (attr_idn <= QUERY_ATTR_IDN_PINNED_WB_MIN_NUM_ALLOC_UNITS)
+		return UFS_SPEC_VER_4_1;
+
+	return UFS_SPEC_VER_2_0;
+}
+
+/**
+ * get_flag_min_spec_version - Get minimum UFS spec version for a flag
+ * @flag_idn: flag IDN
+ *
+ * Returns the minimum wSpecVersion required to query the given flag.
+ */
+static __u16 get_flag_min_spec_version(__u8 flag_idn)
+{
+	/* 0x01-0x0B: UFS 2.0 base flags */
+	if (flag_idn <= QUERY_FLAG_IDN_PERMANENTLYDISABLEFW)
+		return UFS_SPEC_VER_2_0;
+	/* 0x0E-0x10: UFS 3.1 (WriteBooster flags) */
+	if (flag_idn <= QUERY_FLAG_IDN_WB_BUF_FLUSH_H8)
+		return UFS_SPEC_VER_3_1;
+	/* 0x11-0x12: UFS 3.1 (HPB flags) */
+	if (flag_idn <= QUERY_FLAG_IDN_HPB_EN)
+		return UFS_SPEC_VER_3_1;
+
+	return UFS_SPEC_VER_2_0;
+}
+
 int do_attributes(struct tool_options *opt)
 {
 	int fd;
@@ -2012,6 +2090,7 @@ int do_attributes(struct tool_options *opt)
 	int oflag = O_RDWR;
 	__u8 att_idn;
 	__u32 attr_value;
+	__u16 spec_version = 0;
 	struct ufs_bsg_request bsg_req = {0};
 	struct ufs_bsg_reply bsg_rsp = {0};
 
@@ -2026,6 +2105,11 @@ int do_attributes(struct tool_options *opt)
 	tmp = &ufs_attrs[opt->idn];
 
 	if (opt->opr == READ_ALL) {
+		spec_version = read_device_spec_version(fd);
+		if (!spec_version)
+			print_warn("Could not read device spec version, "
+				   "querying all attributes");
+
 		att_idn = QUERY_ATTR_IDN_BOOT_LU_EN;
 
 		while (att_idn < QUERY_ATTR_IDN_MAX) {
@@ -2036,12 +2120,34 @@ int do_attributes(struct tool_options *opt)
 				att_idn++;
 				continue;
 			}
+			if (spec_version &&
+			    get_attr_min_spec_version(att_idn) > spec_version) {
+				att_idn++;
+				continue;
+			}
 			rc = read_single_attr(fd, opt, att_idn, &bsg_req,
 					      &bsg_rsp);
 
 			memset(&bsg_rsp, 0, BSG_REPLY_SZ);
 			att_idn++;
 		}
+	} else if (opt->opr == READ) {
+		if (tmp->acc_mode & WRITE_ONLY) {
+			print_error("The attribute is write only");
+			goto out;
+		}
+
+		spec_version = read_device_spec_version(fd);
+		if (spec_version &&
+		    get_attr_min_spec_version(opt->idn) > spec_version)
+			print_warn("Attribute 0x%02x requires UFS spec "
+				   "version 0x%04x but device reports 0x%04x",
+				   opt->idn,
+				   get_attr_min_spec_version(opt->idn),
+				   spec_version);
+
+		rc = read_single_attr(fd, opt, opt->idn, &bsg_req, &bsg_rsp);
+		goto out;
 	} else if (opt->opr == WRITE) {
 		attr_value = *(__u32 *)opt->data;
 		if (opt->idn > ARRAY_SIZE(ufs_attrs) ||
@@ -2081,12 +2187,6 @@ skip_width_check:
 				UPIU_QUERY_FUNC_STANDARD_WRITE_REQUEST,
 				UPIU_QUERY_OPCODE_WRITE_ATTR, opt->idn,
 				opt->index, opt->selector, 0, 0, 0);
-	} else if (opt->opr == READ) {
-		if (tmp->acc_mode & WRITE_ONLY) {
-			print_error("The attribute is write only");
-			goto out;
-		}
-		rc = read_single_attr(fd, opt, opt->idn, &bsg_req, &bsg_rsp);
 	}
 out:
 	close(fd);
@@ -2129,6 +2229,7 @@ int do_flags(struct tool_options *opt)
 	int fd;
 	int rc = OK;
 	__u8 opcode, flag_idn;
+	__u16 spec_version = 0;
 	struct flag_fields *tmp;
 	struct ufs_bsg_request bsg_req = {0};
 	struct ufs_bsg_reply bsg_rsp = {0};
@@ -2147,6 +2248,11 @@ int do_flags(struct tool_options *opt)
 
 	switch (opt->opr) {
 	case READ_ALL:
+		spec_version = read_device_spec_version(fd);
+		if (!spec_version)
+			print_warn("Could not read device spec version, "
+				   "querying all flags");
+
 		flag_idn = QUERY_FLAG_IDN_FDEVICEINIT;
 		printf("UFS Device Flags:\n");
 		while (flag_idn < ARRAY_SIZE(ufs_flags)) {
@@ -2154,6 +2260,12 @@ int do_flags(struct tool_options *opt)
 			if (tmp->acc_type == ACC_INVALID ||
 			    tmp->acc_mode & WRITE_ONLY ||
 			    !strcmp(tmp->name, "VendorSpecificFlag")) {
+				flag_idn++;
+				continue;
+			}
+			if (spec_version &&
+			    get_flag_min_spec_version(flag_idn) >
+			    spec_version) {
 				flag_idn++;
 				continue;
 			}

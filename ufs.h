@@ -9,6 +9,14 @@
 
 #define BLOCK_SIZE 512
 
+/* UFS Specification Version values from wSpecVersion in Device Descriptor */
+#define UFS_SPEC_VER_2_0	0x0200
+#define UFS_SPEC_VER_2_1	0x0210
+#define UFS_SPEC_VER_3_0	0x0300
+#define UFS_SPEC_VER_3_1	0x0310
+#define UFS_SPEC_VER_4_0	0x0400
+#define UFS_SPEC_VER_4_1	0x0410
+
 /*
  * Generally the max HW max chunk is 512KB,
  * but in order to be in safe side tool using 256KB as max chunk size
