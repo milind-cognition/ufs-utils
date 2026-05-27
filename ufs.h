@@ -18,6 +18,17 @@
 
 #define QUERY_DESC_MAX_SIZE       255
 
+/* UFS spec version values from wSpecVersion in device descriptor */
+#define UFS_SPEC_VER_2_0	0x0200
+#define UFS_SPEC_VER_2_1	0x0210
+#define UFS_SPEC_VER_3_0	0x0300
+#define UFS_SPEC_VER_3_1	0x0310
+#define UFS_SPEC_VER_4_0	0x0400
+#define UFS_SPEC_VER_4_1	0x0410
+
+/* Offset of wSpecVersion field in device descriptor */
+#define DEVICE_DESC_SPEC_VER_OFFSET	0x10
+
 enum sg_struct_type {
 	SG3_TYPE  = 0,
 	SG4_TYPE
