@@ -271,6 +271,7 @@ long str_to_long(char *nptr, int base, long *result)
 	return OK;
 }
 
+#ifndef TEST_MODE
 int main(int ac, char **av)
 {
 	int rc;
@@ -291,4 +292,5 @@ out:
 		free(options.data);
 	return rc ? EXIT_FAILURE : EXIT_SUCCESS;
 }
+#endif /* TEST_MODE */
 

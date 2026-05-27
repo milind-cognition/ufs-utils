@@ -52,6 +52,44 @@ help:
 	@echo "\033[92m2 Build the tool using \"make\"\033[0m"
 	@echo "\033[92m3 Clean the tool using \"make clean\"\033[0m"
 
+# Objects shared by tests (excludes ufs.o, options.o, scsi_bsg_util.o
+# since tests may include those .c files directly for static fn access)
+test_support_objects = \
+	ufs_cmds.o \
+	ufs_err_hist.o \
+	unipro.o \
+	ufs_ffu.o \
+	ufs_vendor.o\
+	hmac_sha2.o \
+	sha2.o \
+	ufs_rpmb.o \
+	ufs_arpmb.o \
+	ufs_hmr.o \
+	ufs_emon.o \
+
+TEST_CFLAGS := $(CHECKFLAGS) $(AM_CFLAGS) -g -O2 -D_GNU_SOURCE $(INC_DIR) $(CXXFLAGS)
+
+# test_ufs_core includes ufs.c directly; links options.o and scsi_bsg_util.o
+tests/test_ufs_core: tests/test_ufs_core.c ufs.c ufs.h options.h $(test_support_objects) options.o scsi_bsg_util.o
+	$(CC) $(TEST_CFLAGS) -I. -DTEST_MODE -o $@ tests/test_ufs_core.c options.o scsi_bsg_util.o $(test_support_objects) $(LDFLAGS) $(LIBS)
+
+# test_options includes ufs.c and options.c directly; links scsi_bsg_util.o
+tests/test_options: tests/test_options.c options.c ufs.c ufs.h options.h $(test_support_objects) scsi_bsg_util.o
+	$(CC) $(TEST_CFLAGS) -I. -DTEST_MODE -o $@ tests/test_options.c scsi_bsg_util.o $(test_support_objects) $(LDFLAGS) $(LIBS)
+
+# test_sha2_hmac is self-contained with sha2.c and hmac_sha2.c
+tests/test_sha2_hmac: tests/test_sha2_hmac.c sha2.c sha2.h hmac_sha2.c hmac_sha2.h
+	$(CC) $(TEST_CFLAGS) -I. -o $@ tests/test_sha2_hmac.c sha2.c hmac_sha2.c $(LDFLAGS) $(LIBS)
+
+# test_scsi_bsg includes ufs.c and scsi_bsg_util.c directly; links options.o
+tests/test_scsi_bsg: tests/test_scsi_bsg.c scsi_bsg_util.c ufs.c scsi_bsg_util.h ufs.h $(test_support_objects) options.o
+	$(CC) $(TEST_CFLAGS) -I. -DTEST_MODE -o $@ tests/test_scsi_bsg.c options.o $(test_support_objects) $(LDFLAGS) $(LIBS)
+
+test: tests/test_ufs_core tests/test_options tests/test_sha2_hmac tests/test_scsi_bsg
+	@bash tests/run_tests.sh
+
 clean:
 	@rm -f $(progs) $(objects) .*.o.d
-.PHONY: all clean
+	@rm -f tests/test_ufs_core tests/test_options tests/test_sha2_hmac tests/test_scsi_bsg tests/*.o
+
+.PHONY: all clean test
