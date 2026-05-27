@@ -24,6 +24,12 @@
 
 #define UFS_BSG_UTIL_VERSION	"7.14.12"
 
+#ifdef TEST_BUILD
+#define TEST_STATIC
+#else
+#define TEST_STATIC static
+#endif
+
 typedef int (*command_function)(struct tool_options *opt);
 
 struct tool_command {
@@ -52,7 +58,7 @@ static struct tool_command commands[] = {
 	{ 0, 0, 0}
 };
 
-static char *get_prgname(char *programname)
+TEST_STATIC char *get_prgname(char *programname)
 {
 	char	*np;
 
@@ -78,7 +84,7 @@ static void help(char *np)
 		" --help|-h\n\t\tShow detailed help for a command\n");
 }
 
-static void initialized_options(struct tool_options *options)
+TEST_STATIC void initialized_options(struct tool_options *options)
 {
 	memset(options, INVALID, sizeof(*options));
 	options->path[0] = '\0';
@@ -271,6 +277,7 @@ long str_to_long(char *nptr, int base, long *result)
 	return OK;
 }
 
+#ifndef TEST_BUILD
 int main(int ac, char **av)
 {
 	int rc;
@@ -291,4 +298,5 @@ out:
 		free(options.data);
 	return rc ? EXIT_FAILURE : EXIT_SUCCESS;
 }
+#endif /* TEST_BUILD */
 
