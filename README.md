@@ -83,5 +83,5 @@ signed-off-by:Arthur Simchaev (arthur.simchaev@sandisk.com)
 signed-off-by:Avri Altman (avri.altman@sandisk.com)
 
 ## License ##
-This project is licensed under the GPL-2.0-only  
+This project is licensed under the GPL-2.0-or-later  
 See [COPYING](COPYING) to see the full text.
