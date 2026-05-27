@@ -2004,6 +2004,55 @@ static int read_single_attr(int fd, struct tool_options *opt, __u8 idn,
 	return rc;
 }
 
+static __u16 get_ufs_spec_version(int fd)
+{
+	__u8 dev_desc[QUERY_DESC_DEVICE_MAX_SIZE] = {0};
+	int rc;
+
+	rc = do_device_desc(fd, dev_desc, 0);
+	if (rc != OK)
+		return 0;
+
+	return be16toh(*(__u16 *)&dev_desc[0x10]);
+}
+
+/*
+ * Check whether the given attribute IDN is supported by the device's
+ * UFS specification version.  Returns true when the attribute may be
+ * queried, false when it should be skipped.
+ */
+static bool is_attr_supported_by_spec(__u8 att_idn, __u16 spec_ver)
+{
+	switch (att_idn) {
+	/* UFS 4.1 attributes */
+	case QUERY_ATTR_IDN_DEVICE_LEVEL_EXT_ID:
+	case QUERY_ATTR_IDN_WB_RESIZE_HINT:
+	case QUERY_ATTR_IDN_WB_RESIZE_ENABLE:
+	case QUERY_ATTR_IDN_WB_RESIZE_STATUS:
+	case QUERY_ATTR_IDN_WB_PFM:
+	case QUERY_ATTR_IDN_MAX_FIFO_SIZE_WB_PFM:
+	case QUERY_ATTR_IDN_CURRENT_FIFO_SIZE_WB_PFM:
+	case QUERY_ATTR_IDN_PINNED_WB_CURRENT_ALLOC_UNIT:
+	case QUERY_ATTR_IDN_PINNED_WB_AVAIL_PERC:
+	case QUERY_ATTR_IDN_PINNED_WB_CUMMULATIVE_WS:
+	case QUERY_ATTR_IDN_PINNED_WB_NUM_ALLOC_UNITS:
+	case QUERY_ATTR_IDN_PINNED_WB_MIN_NUM_ALLOC_UNITS:
+		return spec_ver >= 0x0410;
+	/* UFS 4.0 attributes */
+	case QUERY_ATTR_IDN_FBO_CONTROL:
+	case QUERY_ATTR_IDN_FBO_EXE_THRESHOLD:
+	case QUERY_ATTR_IDN_FBO_PROGRESS_STATE:
+	case QUERY_ATTR_IDN_DEFRAG_OPERATION:
+	case QUERY_ATTR_IDN_HID_AVAILABLE_SIZE:
+	case QUERY_ATTR_IDN_HID_SIZE:
+	case QUERY_ATTR_IDN_HID_PROGRESS_RATIO:
+	case QUERY_ATTR_IDN_HID_STATE:
+		return spec_ver >= 0x0400;
+	default:
+		return true;
+	}
+}
+
 int do_attributes(struct tool_options *opt)
 {
 	int fd;
@@ -2026,13 +2075,16 @@ int do_attributes(struct tool_options *opt)
 	tmp = &ufs_attrs[opt->idn];
 
 	if (opt->opr == READ_ALL) {
+		__u16 spec_ver = get_ufs_spec_version(fd);
+
 		att_idn = QUERY_ATTR_IDN_BOOT_LU_EN;
 
 		while (att_idn < QUERY_ATTR_IDN_MAX) {
 			tmp = &ufs_attrs[att_idn];
 			if (tmp->acc_type == ACC_INVALID ||
 			    tmp->acc_mode & WRITE_ONLY ||
-			    !strcmp(tmp->name, "VendorSpecificAttr")) {
+			    !strcmp(tmp->name, "VendorSpecificAttr") ||
+			    !is_attr_supported_by_spec(att_idn, spec_ver)) {
 				att_idn++;
 				continue;
 			}
