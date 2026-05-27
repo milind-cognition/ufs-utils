@@ -18,5 +18,9 @@
 ufs-utils
 *metadata*
 *project
+.*.o.d
 
 /Debug/
+
+# Test binaries
+tests/test_ufs_utils
