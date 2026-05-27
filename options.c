@@ -888,7 +888,7 @@ static int verify_output_data(struct tool_options *options)
 		goto out;
 	}
 
-	options->data = (char *)calloc(1, len);
+	options->data = (char *)calloc(1, len + 1);
 	if (!options->data) {
 		print_error("Memory Allocation problem");
 		goto out;
