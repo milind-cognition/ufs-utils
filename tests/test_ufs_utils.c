@@ -12,7 +12,6 @@
 #include <errno.h>
 #include <limits.h>
 #include <unistd.h>
-#include <getopt.h>
 
 #include "ufs.h"
 #include "ufs_cmds.h"
@@ -30,7 +29,6 @@ static void test_str_to_long_decimal(void **state)
 	(void)state;
 	long result = 0;
 
-	optarg = "42";
 	assert_int_equal(str_to_long("42", 10, &result), OK);
 	assert_int_equal(result, 42);
 }
@@ -40,7 +38,6 @@ static void test_str_to_long_hex(void **state)
 	(void)state;
 	long result = 0;
 
-	optarg = "0xFF";
 	assert_int_equal(str_to_long("0xFF", 16, &result), OK);
 	assert_int_equal(result, 0xFF);
 }
@@ -50,7 +47,6 @@ static void test_str_to_long_zero(void **state)
 	(void)state;
 	long result = -1;
 
-	optarg = "0";
 	assert_int_equal(str_to_long("0", 10, &result), OK);
 	assert_int_equal(result, 0);
 }
@@ -60,7 +56,6 @@ static void test_str_to_long_negative(void **state)
 	(void)state;
 	long result = 0;
 
-	optarg = "-123";
 	assert_int_equal(str_to_long("-123", 10, &result), OK);
 	assert_int_equal(result, -123);
 }
@@ -77,7 +72,6 @@ static void test_str_to_long_null_result(void **state)
 {
 	(void)state;
 
-	optarg = "42";
 	assert_int_equal(str_to_long("42", 10, NULL), ERROR);
 }
 
@@ -86,7 +80,6 @@ static void test_str_to_long_invalid_string(void **state)
 	(void)state;
 	long result = 0;
 
-	optarg = "notanumber";
 	assert_int_equal(str_to_long("notanumber", 10, &result), ERROR);
 }
 
@@ -95,7 +88,6 @@ static void test_str_to_long_partial_number(void **state)
 	(void)state;
 	long result = 0;
 
-	optarg = "42abc";
 	assert_int_equal(str_to_long("42abc", 10, &result), ERROR);
 }
 
@@ -104,7 +96,6 @@ static void test_str_to_long_empty_string(void **state)
 	(void)state;
 	long result = 0;
 
-	optarg = "";
 	assert_int_equal(str_to_long("", 10, &result), ERROR);
 }
 

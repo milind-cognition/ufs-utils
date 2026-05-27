@@ -259,7 +259,7 @@ long str_to_long(char *nptr, int base, long *result)
 	 */
 	errno = 0;
 
-	*result = strtol(optarg, &endptr, base);
+	*result = strtol(nptr, &endptr, base);
 
 	if (endptr == nptr ||		/* no conversion performed */
 		*endptr != '\0' ||		/* some chars not converted */
