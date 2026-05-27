@@ -52,6 +52,11 @@ help:
 	@echo "\033[92m2 Build the tool using \"make\"\033[0m"
 	@echo "\033[92m3 Clean the tool using \"make clean\"\033[0m"
 
+test:
+	$(MAKE) -C tests check
+
 clean:
 	@rm -f $(progs) $(objects) .*.o.d
-.PHONY: all clean
+	$(MAKE) -C tests clean
+
+.PHONY: all clean test
